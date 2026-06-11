@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemma 4 Speech-to-Text Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .content {
+            margin-bottom: 40px;
+        }
+
+        .mic-button {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            position: relative;
+        }
+
+        .mic-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+
+        .mic-button.recording {
+            animation: pulse 1.5s infinite;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(245, 87, 108, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 30px rgba(245, 87, 108, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(245, 87, 108, 0);
+            }
+        }
+
+        .mic-icon {
+            width: 50px;
+            height: 50px;
+            background: white;
+            mask: url(#mic-icon);
+            -webkit-mask: url(#mic-icon);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mic-button svg {
+            width: 50px;
+            height: 50px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 30px;
+        }
+
+        .status.recording {
+            color: #f5576c;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .status.idle {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .status.processing {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .waveform {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 60px;
+            gap: 4px;
+            margin-bottom: 30px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .waveform.active {
+            opacity: 1;
+        }
+
+        .waveform-bar {
+            width: 4px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+            animation: waveAnimation 0.6s ease-in-out infinite;
+        }
+
+        @keyframes waveAnimation {
+            0%, 100% {
+                height: 10px;
+            }
+            50% {
+                height: 50px;
+            }
+        }
+
+        .output-section {
+            margin-top: 30px;
+        }
+
+        .output-label {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .transcript-box {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 100px;
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .transcript-box:empty::before {
+            content: 'Transcribed text will appear here...';
+            color: #999;
+        }
+
+        .transcript-box.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-copy {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-copy:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clear {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-clear:hover {
+            background: #d0d0d0;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .info-section p {
+            margin-bottom: 8px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #c33;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .mic-button {
+                width: 100px;
+                height: 100px;
+            }
+
+            .mic-button svg {
+                width: 40px;
+                height: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 Gemma 4 Speech-to-Text</h1>
+            <p>Click the mic button to start recording</p>
+        </div>
+
+        <div class="content">
+            <div style="text-align: center;">
+                <button class="mic-button" id="micButton" title="Click to record">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 16.91c-1.48 1.46-3.5 2.36-5.77 2.36-2.27 0-4.29-.9-5.77-2.36m1.04-9.63c-.59-.59-1.54-.59-2.12 0-.59.59-.59 1.54 0 2.12M23 12a1 1 0 0 1-2 0"/>
+                        <path d="M16.93 13.5c1.43-1.43 1.43-3.77 0-5.2"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="waveform" id="waveform">
+                <div class="waveform-bar" style="animation-delay: 0s;"></div>
+                <div class="waveform-bar" style="animation-delay: 0.1s;"></div>
+                <div class="waveform-bar" style="animation-delay: 0.2s;"></div>
+                <div class="waveform-bar" style="animation-delay: 0.3s;"></div>
+                <div class="waveform-bar" style="animation-delay: 0.4s;"></div>
+            </div>
+
+            <div class="status idle" id="status">Ready to record</div>
+
+            <div id="errorContainer"></div>
+
+            <div class="output-section">
+                <div class="output-label">Transcription</div>
+                <div class="transcript-box" id="transcriptBox"></div>
+                <div class="button-group">
+                    <button class="btn btn-copy" id="copyBtn" disabled>📋 Copy Text</button>
+                    <button class="btn btn-clear" id="clearBtn">🗑️ Clear</button>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <p><strong>Status:</strong> <span id="modelStatus">Not connected</span></p>
+                <p><strong>Model:</strong> Gemma 4 (e2b)</p>
+                <p><strong>Feature:</strong> Speech-to-Text with real-time transcription</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class GemmaSTTInterface {
+            constructor() {
+                this.mediaRecorder = null;
+                this.audioContext = null;
+                this.stream = null;
+                this.audioChunks = [];
+                this.isRecording = false;
+
+                this.elements = {
+                    micButton: document.getElementById('micButton'),
+                    status: document.getElementById('status'),
+                    waveform: document.getElementById('waveform'),
+                    transcriptBox: document.getElementById('transcriptBox'),
+                    copyBtn: document.getElementById('copyBtn'),
+                    clearBtn: document.getElementById('clearBtn'),
+                    errorContainer: document.getElementById('errorContainer'),
+                    modelStatus: document.getElementById('modelStatus')
+                };
+
+                this.initializeEventListeners();
+                this.initializeModel();
+            }
+
+            initializeEventListeners() {
+                this.elements.micButton.addEventListener('click', () => this.toggleRecording());
+                this.elements.copyBtn.addEventListener('click', () => this.copyToClipboard());
+                this.elements.clearBtn.addEventListener('click', () => this.clearTranscript());
+            }
+
+            async initializeModel() {
+                try {
+                    // TODO: Initialize Gemma 4 e2b model here
+                    // This is where the e2b API connection will be established
+                    this.elements.modelStatus.textContent = 'Ready';
+                    this.elements.modelStatus.style.color = '#667eea';
+                } catch (error) {
+                    this.showError('Failed to initialize model: ' + error.message);
+                    this.elements.modelStatus.textContent = 'Error initializing';
+                }
+            }
+
+            async toggleRecording() {
+                if (this.isRecording) {
+                    this.stopRecording();
+                } else {
+                    this.startRecording();
+                }
+            }
+
+            async startRecording() {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.mediaRecorder = new MediaRecorder(this.stream);
+
+                    this.audioChunks = [];
+                    this.mediaRecorder.addEventListener('dataavailable', (event) => {
+                        this.audioChunks.push(event.data);
+                    });
+
+                    this.mediaRecorder.addEventListener('stop', () => this.handleRecordingStop());
+
+                    this.mediaRecorder.start();
+                    this.isRecording = true;
+
+                    this.elements.micButton.classList.add('recording');
+                    this.elements.waveform.classList.add('active');
+                    this.updateStatus('Recording...', 'recording');
+                    this.clearError();
+                } catch (error) {
+                    this.showError('Microphone access denied: ' + error.message);
+                    this.updateStatus('Ready to record', 'idle');
+                }
+            }
+
+            stopRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                    this.mediaRecorder.stop();
+                    this.stream.getTracks().forEach(track => track.stop());
+
+                    this.isRecording = false;
+                    this.elements.micButton.classList.remove('recording');
+                    this.elements.waveform.classList.remove('active');
+                    this.updateStatus('Processing audio...', 'processing');
+                }
+            }
+
+            async handleRecordingStop() {
+                try {
+                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                    await this.transcribeAudio(audioBlob);
+                } catch (error) {
+                    this.showError('Error processing audio: ' + error.message);
+                    this.updateStatus('Ready to record', 'idle');
+                }
+            }
+
+            async transcribeAudio(audioBlob) {
+                try {
+                    // TODO: Send audio to Gemma 4 e2b model for transcription
+                    // Example: const response = await this.sendToGemmaModel(audioBlob);
+                    // this.displayTranscription(response.text);
+
+                    // Placeholder: Display demo transcription
+                    const mockTranscription = 'Audio transcription will appear here after Gemma 4 e2b model integration.';
+                    this.displayTranscription(mockTranscription);
+
+                    this.updateStatus('Ready to record', 'idle');
+                } catch (error) {
+                    this.showError('Transcription failed: ' + error.message);
+                    this.updateStatus('Ready to record', 'idle');
+                }
+            }
+
+            displayTranscription(text) {
+                this.elements.transcriptBox.textContent = text;
+                this.elements.transcriptBox.classList.add('active');
+                this.elements.copyBtn.disabled = false;
+            }
+
+            copyToClipboard() {
+                const text = this.elements.transcriptBox.textContent;
+                if (text && text !== 'Transcribed text will appear here...') {
+                    navigator.clipboard.writeText(text).then(() => {
+                        const btn = this.elements.copyBtn;
+                        const originalText = btn.textContent;
+                        btn.textContent = '✓ Copied!';
+                        setTimeout(() => {
+                            btn.textContent = originalText;
+                        }, 2000);
+                    });
+                }
+            }
+
+            clearTranscript() {
+                this.elements.transcriptBox.textContent = '';
+                this.elements.transcriptBox.classList.remove('active');
+                this.elements.copyBtn.disabled = true;
+            }
+
+            updateStatus(text, className) {
+                this.elements.status.textContent = text;
+                this.elements.status.className = `status ${className}`;
+            }
+
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = message;
+                this.elements.errorContainer.innerHTML = '';
+                this.elements.errorContainer.appendChild(errorDiv);
+                setTimeout(() => this.clearError(), 5000);
+            }
+
+            clearError() {
+                this.elements.errorContainer.innerHTML = '';
+            }
+        }
+
+        // Initialize the interface when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            new GemmaSTTInterface();
+        });
+    </script>
+</body>
+</html>
