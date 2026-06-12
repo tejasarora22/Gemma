@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemma 4 Speech-to-Text Interface</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/RecordRTC/5.6.2/RecordRTC.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -384,18 +385,20 @@
             async startRecording() {
                 try {
                     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    this.mediaRecorder = new MediaRecorder(this.stream);
-
-                    this.audioChunks = [];
-                    this.mediaRecorder.addEventListener('dataavailable', (event) => {
-                        this.audioChunks.push(event.data);
+                    
+                    // 🎙️ Force the browser to encode a perfect 16kHz Mono WAV file
+                    this.mediaRecorder = new RecordRTC(this.stream, {
+                        type: 'audio',
+                        mimeType: 'audio/wav',
+                        recorderType: RecordRTC.StereoAudioRecorder,
+                        desiredSampRate: 16000,
+                        numberOfAudioChannels: 1
                     });
-
-                    this.mediaRecorder.addEventListener('stop', () => this.handleRecordingStop());
-
-                    this.mediaRecorder.start();
+                    
+                    this.mediaRecorder.startRecording();
                     this.isRecording = true;
-
+                    
+                    // Your exact original UI updates
                     this.elements.micButton.classList.add('recording');
                     this.elements.waveform.classList.add('active');
                     this.updateStatus('Recording...', 'recording');
@@ -407,24 +410,23 @@
             }
 
             stopRecording() {
-                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-                    this.mediaRecorder.stop();
-                    this.stream.getTracks().forEach(track => track.stop());
-
+                if (this.mediaRecorder) {
+                    this.mediaRecorder.stopRecording(() => {
+                        // 1. Grab the perfect WAV blob RecordRTC just built
+                        const audioBlob = this.mediaRecorder.getBlob();
+                        
+                        // 2. Send it straight to Python
+                        this.transcribeAudio(audioBlob);
+                        
+                        // 3. Turn off the physical microphone light
+                        this.stream.getTracks().forEach(track => track.stop());
+                    });
+                    
+                    // Your exact original UI updates
                     this.isRecording = false;
                     this.elements.micButton.classList.remove('recording');
                     this.elements.waveform.classList.remove('active');
-                    this.updateStatus('Processing audio...', 'processing');
-                }
-            }
-
-            async handleRecordingStop() {
-                try {
-                    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                    await this.transcribeAudio(audioBlob);
-                } catch (error) {
-                    this.showError('Error processing audio: ' + error.message);
-                    this.updateStatus('Ready to record', 'idle');
+                    this.updateStatus('Processing...', 'processing');
                 }
             }
 
