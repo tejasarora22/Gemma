@@ -430,17 +430,32 @@
 
             async transcribeAudio(audioBlob) {
                 try {
-                    // TODO: Send audio to Gemma 4 e2b model for transcription
-                    // Example: const response = await this.sendToGemmaModel(audioBlob);
-                    // this.displayTranscription(response.text);
+                    // 1. Package the microphone chunk into a web form envelope
+                    const formData = new FormData();
+                    formData.append("audio", audioBlob, "input.wav");
 
-                    // Placeholder: Display demo transcription
-                    const mockTranscription = 'Audio transcription will appear here after Gemma 4 e2b model integration.';
-                    this.displayTranscription(mockTranscription);
+                    // 2. Dispatch the payload to your running local Python server
+                    const response = await fetch("http://127.0.0.1:5000/api/chat", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server returned status code: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (data.response) {
+                        // 3. Inject Gemma 4's native response directly into the UI text box
+                        this.displayTranscription(data.response);
+                    } else if (data.error) {
+                        this.showError("Server Error: " + data.error);
+                    }
 
                     this.updateStatus('Ready to record', 'idle');
                 } catch (error) {
-                    this.showError('Transcription failed: ' + error.message);
+                    this.showError('Connection failed: ' + error.message);
                     this.updateStatus('Ready to record', 'idle');
                 }
             }
